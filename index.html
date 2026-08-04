@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Business Analyst BI Dashboard</title>
+    <meta name="description" content="Automate reporting, KPIs, comparisons, and custom PDF exports for Category Managers.">
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- External Libraries (CDNs) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="nav-container">
+            <div class="logo-section">
+                <span class="logo-icon">📊</span>
+                <h1>AI Business Analyst Dashboard</h1>
+            </div>
+            <div class="controls-right">
+                <button id="btn-download-template" class="btn btn-secondary">📥 Download Template</button>
+                <button id="theme-toggle" class="theme-toggle-btn" title="Toggle Theme">☀️</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Upload Landing Zone -->
+    <div class="upload-container">
+        <div id="upload-card" class="upload-card">
+            <div class="upload-icon">📁</div>
+            <p>Drag & drop your Category Excel (.xlsx) or CSV here</p>
+            <span>Or click anywhere in this card to browse your files</span>
+            <input type="file" id="file-input" class="hidden-file-input" accept=".xlsx, .csv">
+        </div>
+    </div>
+
+    <!-- Main Dashboard Application Area -->
+    <main>
+        
+        <!-- Filter Bar -->
+        <section class="filter-bar">
+            <div class="filter-group">
+                <label for="filter-category">Category</label>
+                <select id="filter-category" class="filter-select">
+                    <option value="All">All Categories</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-batch">Batch</label>
+                <select id="filter-batch" class="filter-select">
+                    <option value="All">All Batches</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-teacher">Teacher</label>
+                <select id="filter-teacher" class="filter-select">
+                    <option value="All">All Teachers</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-state">State</label>
+                <select id="filter-state" class="filter-select">
+                    <option value="All">All States</option>
+                </select>
+            </div>
+
+            <!-- Comparison Mode Toggle -->
+            <div class="comparison-panel">
+                <label class="comparison-toggle">
+                    <input type="checkbox" id="compare-mode-toggle"> 🔄 Enable Batch Comparison Mode
+                </label>
+                <div class="comparison-selectors">
+                    <select id="compare-batch-a" class="filter-select"></select>
+                    <span>vs</span>
+                    <select id="compare-batch-b" class="filter-select"></select>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Summary Cards Grid -->
+        <section class="kpi-grid">
+            <div id="kpi-today-sales" class="kpi-card"></div>
+            <div id="kpi-target" class="kpi-card"></div>
+            <div id="kpi-revenue" class="kpi-card"></div>
+            <div id="kpi-profit" class="kpi-card"></div>
+        </section>
+
+        <!-- Comparison Details Row (Displays when Compare Mode is Active) -->
+        <section id="comparison-card-container" class="dashboard-card" style="margin-bottom: 1.5rem; display: none;">
+            <div class="card-title">Batch Comparison Report</div>
+            <div class="card-body">
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Batch A</th>
+                                <th>Batch B</th>
+                                <th>Variance</th>
+                                <th>% Change</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparison-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section Navigation Tabs -->
+        <nav class="tabs-navigation">
+            <button class="tab-btn active" data-tab="executive-summary">Executive Summary</button>
+            <button class="tab-btn" data-tab="sales-dashboard">Sales</button>
+            <button class="tab-btn" data-tab="target-dashboard">Targets</button>
+            <button class="tab-btn" data-tab="batch-dashboard">Batches</button>
+            <button class="tab-btn" data-tab="category-dashboard">Categories</button>
+            <button class="tab-btn" data-tab="teacher-dashboard">Teachers</button>
+            <button class="tab-btn" data-tab="state-dashboard">States</button>
+            <button class="tab-btn" data-tab="refund-dashboard">Refunds</button>
+            <button class="tab-btn" data-tab="forecast-dashboard">Forecast</button>
+            <button class="tab-btn" data-tab="business-insights-tab">Business Insights</button>
+            <button class="tab-btn" data-tab="downloads-tab">Downloads</button>
+        </nav>
+
+        <!-- Tab Contents -->
+        
+        <!-- 1. Executive Summary -->
+        <div id="executive-summary" class="tab-content active">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Sales Overview Trend</div>
+                    <div class="card-body chart-container">
+                        <canvas id="sales-overview-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">Top Performing Batches</div>
+                    <div class="card-body" id="top-performers-mini"></div>
+                </div>
+            </div>
+            <div class="dashboard-card">
+                <div class="card-title">Recent Transactions</div>
+                <div class="card-body table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Order ID</th>
+                                <th>Category</th>
+                                <th>Batch</th>
+                                <th>Teacher</th>
+                                <th>Sales</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-sales-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Sales Dashboard -->
+        <div id="sales-dashboard" class="tab-content">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Revenue Sales Trend</div>
+                    <div class="card-body chart-container">
+                        <canvas id="sales-trend-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">Daily Orders Volume</div>
+                    <div class="card-body chart-container">
+                        <canvas id="orders-trend-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Target Dashboard -->
+        <div id="target-dashboard" class="tab-content">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Category Revenue vs Targets</div>
+                    <div class="card-body chart-container">
+                        <canvas id="target-comparison-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">Target Progress Details</div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Target Target</th>
+                                    <th>Achieved</th>
+                                    <th>% Progress</th>
+                                    <th>Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody id="target-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Batch Dashboard -->
+        <div id="batch-dashboard" class="tab-content">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Top 10 Batches (Revenue)</div>
+                    <div class="card-body chart-container">
+                        <canvas id="top-batches-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">Bottom 10 Batches (Revenue)</div>
+                    <div class="card-body chart-container">
+                        <canvas id="bottom-batches-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="dashboard-card">
+                <div class="card-title">Full Batch Performance Details</div>
+                <div class="card-body table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Batch Name</th>
+                                <th>Revenue</th>
+                                <th>Occupancy (Enrolled / Capacity)</th>
+                                <th>Batch Fill %</th>
+                                <th>Net Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batch-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Category Dashboard -->
+        <div id="category-dashboard" class="tab-content">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Category Revenue Contribution</div>
+                    <div class="card-body chart-container">
+                        <canvas id="category-comparison-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">Category Sales Metrics</div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Total Revenue</th>
+                                    <th>Order Count</th>
+                                    <th>Computed Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="category-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Teacher Dashboard -->
+        <div id="teacher-dashboard" class="tab-content">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Teacher Performance (Revenue)</div>
+                    <div class="card-body chart-container">
+                        <canvas id="teacher-performance-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">Teacher Admissions Summary</div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Teacher Name</th>
+                                    <th>Total Revenue</th>
+                                    <th>Student Enrolled</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teacher-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. State Dashboard -->
+        <div id="state-dashboard" class="tab-content">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Regional State Distribution</div>
+                    <div class="card-body chart-container">
+                        <canvas id="state-performance-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">State Sales Table</div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>State</th>
+                                    <th>Total Sales</th>
+                                </tr>
+                            </thead>
+                            <tbody id="state-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Refund Dashboard -->
+        <div id="refund-dashboard" class="tab-content">
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="card-title">Refund Distribution by Category</div>
+                    <div class="card-body chart-container">
+                        <canvas id="refund-trend-chart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-title">Recent Refunded Orders</div>
+                    <div class="card-body table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Refund Date</th>
+                                    <th>Order ID</th>
+                                    <th>Category</th>
+                                    <th>Batch</th>
+                                    <th>Refund Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="refunds-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 9. Forecast Dashboard -->
+        <div id="forecast-dashboard" class="tab-content">
+            <div class="dashboard-card" style="margin-bottom: 1.5rem;">
+                <div class="card-title">Linear Revenue Forecast (Next 7 Days)</div>
+                <div class="card-body chart-container">
+                    <canvas id="forecast-trend-chart"></canvas>
+                </div>
+            </div>
+            <div id="forecast-summary-box"></div>
+        </div>
+
+        <!-- 10. Business Insights -->
+        <div id="business-insights-tab" class="tab-content">
+            <div class="dashboard-card">
+                <div class="card-title">AI Business Analyst Insights & Recommendations</div>
+                <div class="card-body" id="insights-container"></div>
+            </div>
+        </div>
+
+        <!-- Downloads Tab -->
+        <div id="downloads-tab" class="tab-content">
+            <div class="dashboard-card">
+                <div class="card-title">Export & Download Automated Reports</div>
+                <div class="card-body">
+                    <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Select from the following formats to export your executive report or batch metrics based on current filters.</p>
+                    <div class="download-grid">
+                        
+                        <div class="download-card-item">
+                            <div class="download-type-icon">📄</div>
+                            <div class="download-details">
+                                <h4>Executive Report (PDF)</h4>
+                                <p>PDF document containing all high-level KPI cards and current visualizations.</p>
+                                <button id="btn-export-exec-pdf" class="btn btn-primary">Download PDF</button>
+                            </div>
+                        </div>
+
+                        <div class="download-card-item">
+                            <div class="download-type-icon">📈</div>
+                            <div class="download-details">
+                                <h4>Executive Summary (Excel)</h4>
+                                <p>Multi-sheet spreadsheet with parsed categories, batches, and order histories.</p>
+                                <button id="btn-export-exec-xlsx" class="btn btn-success">Download Excel</button>
+                            </div>
+                        </div>
+
+                        <div class="download-card-item">
+                            <div class="download-type-icon">📄</div>
+                            <div class="download-details">
+                                <h4>Selected Batch Report (PDF)</h4>
+                                <p>PDF snapshot containing only charts and tables of the selected Batch.</p>
+                                <button id="btn-export-batch-pdf" class="btn btn-primary">Download PDF</button>
+                            </div>
+                        </div>
+
+                        <div class="download-card-item">
+                            <div class="download-type-icon">📈</div>
+                            <div class="download-details">
+                                <h4>Selected Batch Data (Excel)</h4>
+                                <p>Comprehensive Excel document containing transactions and refunds for the batch.</p>
+                                <button id="btn-export-batch-xlsx" class="btn btn-success">Download Excel</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+
+
+    <!-- Application Script Bindings -->
+    <script src="js/dataParser.js"></script>
+    <script src="js/kpiEngine.js"></script>
+    <script src="js/uiManager.js"></script>
+    <script src="js/exportManager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
